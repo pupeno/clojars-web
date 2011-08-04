@@ -5,3 +5,9 @@
 home
 data/
 /.vagrant
+
+# IntelliJ IDEA (La Clojure) project files
+*.ipr
+*.iws
+*.iml
+
