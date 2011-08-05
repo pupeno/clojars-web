@@ -184,3 +184,27 @@ PasswordAuthentication no")) >> "/etc/ssh/sshd_config")))
    "clojars"
    :extends [clojars-server]
    :node-spec clojars-node-spec))
+
+
+;; Functions to deploy only Clojars app.
+;; TODO: refactor all names to make sense
+(defn deploy-clojars-app
+  [session & {:keys [instance]}]
+  (let [settings (parameter/get-target-settings session :clojars instance)
+        user (:user settings)]
+    (->
+     session
+     (configure-webapp :instance instance)
+     (stop-clojars)
+     (start-clojars))))
+
+(def clojars-server-app
+  (core/server-spec
+   :phases {:settings settings
+            :configure deploy-clojars-app}))
+
+(def clojars-app
+  (core/group-spec
+   "clojars"
+   :extends [clojars-server-app]
+   :node-spec clojars-node-spec))
