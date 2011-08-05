@@ -12,6 +12,10 @@
                  [org.clojars.ato/nailgun "0.7.1"]
                  [org.xerial/sqlite-jdbc "3.6.17"]
                  [org.apache.commons/commons-email "1.2"]]
-  :dev-dependencies [[lein-ring "0.4.5"]]
-  :ring {:handler clojars.web/clojars-app})
-
+  :dev-dependencies [[lein-ring "0.4.5"]
+                     [org.cloudhoist/pallet "0.6.2"]
+                     [org.cloudhoist/automated-admin-user "0.5.0"]
+                     [vmfest "0.2.3"]]
+  :ring {:handler clojars.web/clojars-app}
+  :repositories
+  {"sonatype" "https://oss.sonatype.org/content/repositories/releases/"})
