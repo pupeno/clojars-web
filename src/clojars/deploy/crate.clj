@@ -43,7 +43,7 @@
   [session]
   (->
    session
-   (exec-script/exec-checked-script
+   (exec-script/exec-script
     "stop clojars"
     (stop clojars "2>" "/dev/null")
     (stop clojars-scp-balance "2>" "/dev/null"))))
@@ -59,7 +59,7 @@
 
 (defn configure-user
   [session & {:keys [instance]}]
-  (let [settings (parameter/get-for-target :clojars instance)
+  (let [settings (parameter/get-target-settings session :clojars instance)
         user (:user settings)]
     (->
      session
@@ -71,19 +71,19 @@
         ((println (quoted "Match User clojars
 PasswordAuthentication no")) >> "/etc/ssh/sshd_config")))
      (directory/directories
-      (map
-       #(str (stevedore/script (~lib/user-home ~user)) "/" %)
-       ["data" "repo" ".ssh"])
+      (doall (map
+              #(str (stevedore/script (~lib/user-home ~user)) "/" %)
+              ["data" "repo" ".ssh"]))
       :owner user :mode "0755"))))
 
 (defn configure-webapp
   [session & {:keys [instance]}]
-  (let [settings (parameter/get-for-target :clojars instance)
+  (let [settings (parameter/get-target-settings session :clojars instance)
         user (:user settings)
         home (stevedore/script (~lib/user-home ~user))
-        git-root (str home "/" (:git-root settings (str home "/prod")))
-        data-root (str home "/" (:data-root settings (str home "/data")))
-        repo-root (str home "/" (:data-root settings (str home "/repo")))]
+        git-root (str home "/" (:git-root settings "prod"))
+        data-root (str home "/" (:data-root settings "data"))
+        repo-root (str home "/" (:repo-root settings "repo"))]
     (->
      session
      (directory/directory
@@ -94,24 +94,28 @@ PasswordAuthentication no")) >> "/etc/ssh/sshd_config")))
       "checkout clojars"
       (if-not (directory? ~git-root)
         (do
-          (git clone git://github.com/technomancy/clojars-web ~git-root)
-          (cd "/home/clojars/prod")
-          (git checkout ~(:branch settings "prod"))
+          (sudo -u clojars
+                (git clone git://github.com/technomancy/clojars-web ~git-root))
+          (cd ~git-root)
+          (sudo -u clojars
+                (git checkout ~(:branch settings "prod")))
           (cd -))))
-     (file/symbolic-link ~data-root (str git-root "/data"))
-     (file/file ~data-root (str git-root "/data/authorized_keys"))
+     (file/symbolic-link data-root (str git-root "/data"))
+     (file/file (str data-root "/authorized_keys") :owner user :mode "0644")
      (file/symbolic-link
       (str git-root "/data/authorized_keys")
       (str home "/.ssh/authorized_keys"))
      (exec-script/exec-checked-script
       "initialise db"
-      (sudo -u clojars
-            (sqlite3 ~(str data-root "/db") < ~(str git-root "/clojars.sql"))))
+      (if-not (file-exists? ~(str data-root "/db"))
+        (sudo -u clojars
+              (sqlite3 ~(str data-root "/db")
+                       < ~(str git-root "/clojars.sql")))))
      (exec-script/exec-checked-script
       "build clojars"
       (cd ~git-root)
-      (sudo -u clojars
-            (env (str "HOME=" ~home) lein uberjar))
+      (sudo -u clojars (env ~(str "HOME=" home) lein deps))
+      (sudo -u clojars (env ~(str "HOME=" home) lein uberjar))
       (cd -))
      (remote-file/remote-file
       "/etc/init/clojars.conf"
@@ -138,17 +142,17 @@ PasswordAuthentication no")) >> "/etc/ssh/sshd_config")))
 
 (defn configure
   [session & {:keys [instance]}]
-  (let [settings (parameter/get-for-target :clojars instance)
+  (let [settings (parameter/get-target-settings session :clojars instance)
         user (:user settings)]
     (->
      session
      (package/package-manager :update)
      (package/package-manager :upgrade)
      (package/packages
-      "git-core" "git-core"
-      "openjdk-6-jdk" "tmux" "sqlite3" "subversion" "nginx"
-      "balance" "cronolog" "emacs23" "tree" "unzip" "rlwrap"
-      "tmux" "curl" "nailgun")
+      :aptitude ["git-core"
+                 "openjdk-6-jdk" "tmux" "sqlite3" "subversion" "nginx"
+                 "balance" "cronolog" "emacs23" "tree" "unzip" "rlwrap"
+                 "tmux" "curl" "nailgun"])
      lein
      (configure-user :instance instance)
      (configure-webapp :instance instance)
@@ -165,7 +169,8 @@ PasswordAuthentication no")) >> "/etc/ssh/sshd_config")))
 
 (def clojars-node-spec
   (core/node-spec
-   :image {:os-family :ubuntu :os-version-matches "10.10"}))
+   :image {:os-family :ubuntu
+           :os-version-matches "11.04"})) ;; 11 is required for nailgun package
 
 (def clojars
   (core/group-spec
