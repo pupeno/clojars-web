@@ -141,7 +141,7 @@ PasswordAuthentication no")) >> "/etc/ssh/sshd_config")))
 
 
 (defn configure-nailgun
-  "TODO Install nailgun"
+  "Make a symlink from ng to ng-nailgun because ng is what's expected. That may need fixing."
   [session]
   (->
    session
