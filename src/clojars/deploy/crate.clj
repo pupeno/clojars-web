@@ -17,9 +17,9 @@
    [pallet.thread-expr :as thread-expr]))
 
 ;; To run this, add this to ~/.pallet/services
-;; {:clojars {:environment {:user {:username "vagrant"}}
+;; {:clojars {:environment {:user {:username "vagrant" :password "vagrant"}}
 ;;           :provider "node-list"
-;;           :node-list [["localhost" "clojars" "10.0.0.1" :ubuntu :os-version "11.04" :ssh-port 2222]]}}
+;;           :node-list [["localhost" "clojars" "127.0.0.1" :ubuntu :os-version "11.04" :ssh-port 2222]]}}
 ;; and then run
 ;; (pallet.core/converge {clojars.deploy.crate/clojars 1}  :compute (pallet.compute/service :clojars))
 
